@@ -22,18 +22,18 @@ const Header = () => {
           <Image
             src={"/logos/FairShare-logo.png"}
             alt="FairShare Logo"
-            width={800}
-            height={240}
-            className="h-11 w-auto object-contain"
+            width={1600}
+            height={480}
+            className="h-20 w-auto object-contain"
           />
         </Link>
 
         {path==='/' && (
           <div className="hideen md:flex items-center gap-6">
-            <Link href="#fetures" className="text-sm font-medium hover:text-green-600 transition">
+            <Link href="#features" className="text-sm font-medium hover:text-green-600 transition">
             Features
             </Link>
-            <Link href="#fetures" className="text-sm font-medium hover:text-green-600 transition">
+            <Link href="#features" className="text-sm font-medium hover:text-green-600 transition">
             How It Works
             </Link>
           </div>
@@ -52,7 +52,7 @@ const Header = () => {
                 <LayoutDashboard className="h-4 w-4" />
               </Button>
             </Link>
-            
+
             <UserButton />
           </Authenticated>
 
