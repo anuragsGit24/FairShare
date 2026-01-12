@@ -7,6 +7,9 @@ import React from "react";
 import { useStoreUserEffect } from "@/hooks/use-store-user";
 import { BarLoader} from "react-spinners";
 import { usePathname } from "next/navigation";
+import { Authenticated, Unauthenticated } from "convex/react";
+import { Button } from "./ui/button";
+import { LayoutDashboard } from "lucide-react";
 
 const Header = () => {
   const { isLoading } = useStoreUserEffect();
@@ -35,6 +38,36 @@ const Header = () => {
             </Link>
           </div>
         )}
+
+        <div className="flex items-center gap-4">
+          <Authenticated>
+            <Link href="/dashboard">
+              <Button variant="outline"
+              className="hidden md:inline-flex items-center gap-2 hover:text-green-600 hover:border-green-600 transition">
+                <LayoutDashboard className="h-4 w-4" />
+                DashBoard
+              </Button>
+
+              <Button variant="ghost" className="md:hidden w-10 h-10 p-0">
+                <LayoutDashboard className="h-4 w-4" />
+              </Button>
+            </Link>
+            
+            <UserButton />
+          </Authenticated>
+
+          <Unauthenticated>
+            <SignInButton>
+              <Button variant="ghost">Sign In</Button>
+            </SignInButton>
+
+            <SignUpButton>
+              <Button className="bg-green-600 hover:bg-green-700 border-none">
+                Get Started
+              </Button>
+            </SignUpButton>
+          </Unauthenticated>
+        </div>
       </nav>
 
       {isLoading && <BarLoader width={"100%"} color="#36d7b7" />}
