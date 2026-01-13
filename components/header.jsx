@@ -24,7 +24,7 @@ const Header = () => {
             alt="FairShare Logo"
             width={1600}
             height={480}
-            className="h-20 w-auto object-contain"
+            className="h-16 w-auto object-contain"
           />
         </Link>
 
