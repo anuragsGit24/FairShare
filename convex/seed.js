@@ -109,7 +109,7 @@ async function createGroups(ctx, users) {
     groupIds.push(groupId);
   }
 
-  // Fetch all groups with their IDs
+  // Fetch all groups with their IDs using async operations
   return await Promise.all(
     groupIds.map(async (id) => {
       const group = await ctx.db.get(id);
