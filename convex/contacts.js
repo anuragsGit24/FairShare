@@ -6,17 +6,19 @@ export const getAllContacts=query({
   handler: async(ctx)=>{
     const CurrentUser = await ctx.runQuery(internal.users.getCurrentUser);
 
-    const expensesYouPaid = await ctx.db.query("expenses").withIndex("by_user_and_group", (q) => {
-      q.eq("paidByUserId", CurrentUser._id).eq("groupId", undefined);
-    })
+    const expensesYouPaid = await ctx.db
+    .query("expenses")
+    .withIndex("by_user_and_group", (q) => 
+      q.eq("paidByUserId", CurrentUser._id).eq("groupId", undefined)
+    )
     .collect();
 
     const expensesnotPaidByYou = 
     (await ctx.db
     .query("expenses")
-    .withIndex("by_group", (q) => {
-      q.eq("groupId", undefined);
-    })
+    .withIndex("by_group", (q) => 
+      q.eq("groupId", undefined)
+    )
     .collect())
     .filter((e) => 
       e.paidByUserId !=  CurrentUser._id && 
@@ -52,14 +54,14 @@ export const getAllContacts=query({
     
     const userGroups = (await ctx.db.query("groups").collect()).filter((g) => 
       g.members
-        .some((m) => m.userId === CurrentUser._id)
+        .some((m) => m.userId === CurrentUser._id))
         .map((g) => ({
           id: g._id,
           name: g.name,
           description: g.description,
           memberCount: g.members.length,
           type:"group",
-        }))
+        })
   );
 
 
