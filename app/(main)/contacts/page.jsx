@@ -9,10 +9,14 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { useRouter } from 'next/navigation';
+import CreateGroupModal from './_components/create-group-modal';
 
 const ContactsPage = () => {
   const [isCreateGrouModalOpen, setIsCreateGroupModalOpen] = useState(false);
   const { data, isLoading, error, mutate } = useConvexQuery(api.contacts.getAllContacts);
+
+  const router = useRouter();
 
   if(isLoading) {
     return (
@@ -118,6 +122,12 @@ const ContactsPage = () => {
           )}
       </div>
     </div>
+    
+    {/* Create group modal placeholder */}
+    <CreateGroupModal isOpen={isCreateGrouModalOpen} 
+    onClose={() => setIsCreateGroupModalOpen(false)} 
+    onSuccess={(groupId) => router.push(`/groups/${groupId}`)}
+    />
 
 
     </div>
