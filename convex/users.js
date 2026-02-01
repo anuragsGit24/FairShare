@@ -1,4 +1,6 @@
+import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
+import { internal } from "./_generated/api";
 
 export const store = mutation({
   args: {},
@@ -57,3 +59,29 @@ export const getCurrentUser = query({
     return user;
   },
 })
+
+export const searchUsers = query({
+  args: { query: v.string() },
+  handler: async (ctx, args) => {
+    const CurrentUser = await ctx.runQuery(internal.users.getCurrentUser);
+
+    //too short - dont search
+    if(args.query.length < 2){
+      return [];
+    }
+
+    //search by name using search index
+    const nameResults = await ctx.db
+    .query("users")
+    .withIndex("search_name", (q) => q.search("name", args.query))
+    .collect();
+
+    //search by email using search index
+    const emailResults = await ctx.db
+    .query("users")
+    .withIndex("search_email", (q) => q.search("email", args.query))
+    .collect();
+
+    
+  },
+});

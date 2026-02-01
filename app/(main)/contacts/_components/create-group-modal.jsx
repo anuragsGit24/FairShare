@@ -2,7 +2,7 @@
 
 import { api } from '@/convex/_generated/api';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import React from 'react';
+import React, { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -18,7 +18,13 @@ const groupSchema = z.object({
 }) ;
 
 const CreateGroupModal = ({isOpen, onClose, onSuccess}) => {
+  const [selectedMembers, setSelectedMembers] = useState([]);
+  const [ searchQuery, setSearchQuery ] = useState('');
+  const [commandOpen, setCommandOpen] = useState(false);
+  
   const {data : currentUser} = useConvexQuery(api.users.getCurrentUser);
+  const {data: searchResults, isLoading: isSearching} = useConvexQuery(api.users.searchUsers);
+
   const{
     register, 
     handleSubmit, 
