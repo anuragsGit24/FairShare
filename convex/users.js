@@ -61,27 +61,47 @@ export const getCurrentUser = query({
 })
 
 export const searchUsers = query({
-  args: { query: v.string() },
+  args: { query: v.string(), },
   handler: async (ctx, args) => {
     const CurrentUser = await ctx.runQuery(internal.users.getCurrentUser);
 
     //too short - dont search
-    if(args.query.length < 2){
+    if(!args.query || args.query.length < 2){
       return [];
     }
 
-    //search by name using search index
+    //search by name using filter
     const nameResults = await ctx.db
     .query("users")
-    .withIndex("search_name", (q) => q.search("name", args.query))
-    .collect();
+    .filter((q) => q.neq(q.field("_id"), CurrentUser._id))
+    .filter((q) => q.neq(q.field("name"), null))
+    .collect()
+    .then(users => users.filter(user => 
+      user.name.toLowerCase().includes(args.query.toLowerCase())
+    ));
 
-    //search by email using search index
+    //search by email using filter
     const emailResults = await ctx.db
     .query("users")
-    .withIndex("search_email", (q) => q.search("email", args.query))
-    .collect();
+    .filter((q) => q.neq(q.field("_id"), CurrentUser._id))
+    .filter((q) => q.neq(q.field("email"), null))
+    .collect()
+    .then(users => users.filter(user => 
+      user.email.toLowerCase().includes(args.query.toLowerCase())
+    ));
 
-    
+    const users = [...nameResults, ...emailResults.filter(
+      (email) => !nameResults.some((name) => name._id === email._id)
+    ),
+  ];
+
+
+  return users
+  .map((user) => ({
+      id: user._id,
+      name: user.name,
+      email: user.email,
+      imageUrl: user.imageUrl,
+  }));
   },
 });
