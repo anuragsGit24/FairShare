@@ -59,6 +59,32 @@ export const getUserBalances = query({
 
 
     const youOweList = []; //List of who you owe and how much
-    const youAreOwedList = []; //List of who owes you and how much
+    const youAreOwedByList = []; //List of who owes you and how much
+
+    for(const [uid, {owed, owing}] of Object.entries(balanceByUserId)){
+      const net = owed - owing; //calculate net balance
+      if(net === 0) continue;
+
+      const counterpart = await ctx.db.get(uid);
+      const base = {
+        userId: uid,
+        name: counterpart?.name ?? "Unknown",
+        imageUrl: counterpart?.imageUrl,
+        amount: Math.abs(net),
+      };
+
+      net > 0 ? youAreOwedByList.push(base) : youOweList.push(base);
+    }
+
+    youOweList.sort((a, b) => b.amount - a.amount);
+    youAreOwedByList.sort((a, b) => b.amount - a.amount);
+
+    return {
+      youOwe, //total amount user owes
+      youAreOwed, // total amount owed to user
+      totalBalance: youAreOwed - youOwe, //net balance
+      oweDetails: {youOwe:youOweList, youAreOwedBy : youAreOwedByList},
+    }
   },
 });
+
