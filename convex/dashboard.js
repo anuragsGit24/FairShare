@@ -1,3 +1,4 @@
+import { internal } from "./_generated/api";
 import { query } from "./_generated/server";
 
 //Get User balances
@@ -10,7 +11,7 @@ export const getUserBalances = query({
     const expenses = (await ctx.db.query("expenses").collect()).filter(
       (e) =>
         !e.groupId &&
-      (e.paidByUserId === user.id ||
+      (e.paidByUserId === user._id ||
         e.splits.some((s) => s.userId === user._id))
     );
 
@@ -87,4 +88,159 @@ export const getUserBalances = query({
     }
   },
 });
+
+
+export const getTotalSpent = query({
+  handler: async (ctx) => {
+    const user = await ctx.runQuery(internal.users.getCurrentUser);
+
+    const currentYear = new Date().getFullYear();
+    const startOfYear = new Date(currentYear, 0, 1).getTime();
+
+    const expenses = await ctx.db
+    .query("expenses")
+    .withIndex("by_date", (q) => q.gte("date", startOfYear))
+    .collect();
+
+    const userExpenses = expenses.filter(
+      (expenses) =>
+        expenses.paidByUserId === user._id ||
+        expenses.splits.some((split) => split.userId === user._id)
+    );
+
+    let totalSpent = 0
+    userExpenses.forEach((expense) => {
+      const userSplit = expense.splits.find((split) => split.userId === user._id);
+
+      if(userSplit){
+        totalSpent += userSplit.amount;
+      }
+    })
+    return totalSpent;
+  }
+});
+
+export const getMonthlySpending = query({
+  handler: async (ctx) => {
+    const user = await ctx.runQuery(internal.users.getCurrentUser);
+
+    const currentYear = new Date().getFullYear();
+    const startOfYear = new Date(currentYear, 0, 1).getTime();
+
+    const expenses = await ctx.db
+    .query("expenses")
+    .withIndex("by_date", (q) => q.gte("date", startOfYear))
+    .collect();
+
+    const userExpenses = expenses.filter(
+      (expenses) =>
+        expenses.paidByUserId === user._id ||
+        expenses.splits.some((split) => split.userId === user._id)
+    );
+
+    const monthlyTotals = {};
+
+    for(let i = 0; i < 12; i++){
+      const monthDate = new Date(currentYear, i, 1);
+      monthlyTotals[monthDate.getTime()] = 0;
+    }
+      
+      userExpenses.forEach((expense) => {
+        const date = new Date(expense.date);
+
+        const monthStart = new Date(
+          date.getFullYear(),
+          date.getMonth(),
+          1
+          ).getTime();
+      
+          const userSplit = expense.splits.find((split) => split.userId === user._id);
+
+          if(userSplit){
+            monthlyTotals[monthStart] += (monthlyTotals[monthStart] || 0) + userSplit.amount;
+          }
+      });
+      const result = Object.entries(monthlyTotals).map(([month, total]) => ({
+        month: parseInt(month),
+        total, 
+      }));
+      
+      //sort by month (chronologically)
+      result.sort((a, b) => a.month - b.month);
+      return result;
+  },
+});
+
+
+export const getUserGroups = query({
+  handler: async (ctx) => {
+    const user = await ctx.runQuery(internal.users.getCurrentUser);
+
+    //get all groups from database
+    const allGroups = await ctx.db.query("groups").collect();
+
+    //filter groups to those where user is a member
+    const groups = allGroups.filter((group) => group.members.some((member) => member.userId === user._id));
+
+    const enhancedGroups = await Promise.all(
+      groups.map(async(group) => {
+        const expenses = await ctx.db
+        .query("expenses")
+        .withIndex("by_groupId", (q) => q.eq("groupId", group._id))
+        .collect();
+
+        let balance = 0;
+
+        expenses.forEach((expense) => {
+          if(expense.paidByUserId === user._id){
+            expense.splits.forEach((split) => {
+              if(split.userId != user._id && !split.paid){
+                balance += split.amount; //user is owed this amount
+              } 
+            });
+          } else {
+            //someone else paid - user may owe them
+            const userSplit = expense.splits.find((split) => split.userId === user._id);
+
+            //subtract amount the user owes others
+            if(userSplit && !userSplit.paid){
+              balance -= userSplit.amount;
+            }
+          }
+        });
+
+        //apply settlements to adjust balance
+        const settlements = await ctx.db
+        .query("settlements")
+        .filter((q) =>
+          q.and(
+            q.eq(q.field("groupId"), group._id),
+            q.or(
+              q.eq(q.field("paidByUserId"), user._id),
+              q.eq(q.field("receivedByUserId"), user._id)
+            )
+          )
+        )
+        .collect();
+
+        settlements.forEach((settlement) => {
+          if(settlement.paidByUserId === user._id){
+            balance += settlement.amount; //user paid someone else, reduce what they owe
+          } else{
+            balance -= settlement.amount; //user received payment, reduce what they are owed
+          }
+      })
+
+        return {
+          ...group,
+          id: group._id,
+          balance, //positive means group owes user, negative means user owes group
+        };
+      })
+    );
+
+    return enhancedGroups;
+  },
+});
+
 
