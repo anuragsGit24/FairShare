@@ -82,7 +82,7 @@ const DashboardPage = () => {
              <Card>
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm font-medium text-muted-foreground">
-                  You are owed
+                  You are owed by someone
                 </CardTitle>
               </CardHeader>
               <CardContent>
