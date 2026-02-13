@@ -6,7 +6,7 @@ import {api} from "@/convex/_generated/api";
 import { BarLoader } from "react-spinners";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
-import { PlusCircle } from "lucide-react";
+import { ChevronRight, PlusCircle, Users } from "lucide-react";
 import {
   Card,
   CardAction,
@@ -16,7 +16,8 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
-import ExpenseSummary from "./components/expense-summary";
+import  ExpenseSummary  from "./components/expense-summary";
+import { BalanceSummary } from "./components/balance-summary";
 
 const DashboardPage = () => {
   const {data: balances, isLoading: balancesLoading} = useConvexQuery(api.dashboard.getUserBalances);
@@ -56,15 +57,15 @@ const DashboardPage = () => {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold"> 
+                <div className="text-2xl font-bold">
                   {balances.totalBalance >= 0 ? (
                     <span className="text-green-600">
                       +₹{balances.totalBalance.toFixed(2)}
-                  </span>
-                ) : balances?.totalBalance < 0 ? (
-                  <span className="text-red-600">
-                    -₹{Math.abs(balances.totalBalance).toFixed(2)}
-                  </span>
+                    </span>
+                  ) : balances?.totalBalance < 0 ? (
+                    <span className="text-red-600">
+                      -₹{Math.abs(balances.totalBalance).toFixed(2)}
+                    </span>
                   ) : (
                     <span>₹0.00</span>
                   )}
@@ -79,10 +80,10 @@ const DashboardPage = () => {
               </CardContent>
             </Card>
 
-             <Card>
+            <Card>
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm font-medium text-muted-foreground">
-                  You are owed by someone
+                  You are owed
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -122,8 +123,8 @@ const DashboardPage = () => {
               </CardContent>
             </Card>
           </div>
-          
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-6">
             {/* left column */}
             <div className="lg:col-span-2 space-y-6">
               {/* Expense Summary */}
@@ -136,8 +137,44 @@ const DashboardPage = () => {
             {/* right column */}
             <div className="space-y-6">
               {/* Balance Details */}
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle>Balance Details</CardTitle>
+                  <Button variant="link" asChild className="p-0">
+                    <Link href="/contacts">
+                      View All
+                      <ChevronRight className="ml-1 h-4 w-4" />
+                    </Link>
+                  </Button>
+                </CardHeader>
+                <CardContent>
+                  <BalanceSummary balances={balances} />
+                </CardContent>
+              </Card>
 
               {/* Groups */}
+              <Card>
+                <CardHeader className="pb-3 flex items-center justify-between">
+                  <CardTitle>Your Groups</CardTitle>
+                  <Button variant="link" asChild className="p-0">
+                    <Link href="/contacts">
+                      View All
+                      <ChevronRight className="ml-1 h-4 w-4" />
+                    </Link>
+                  </Button>
+                </CardHeader>
+                <CardContent>
+                  <BalanceSummary groups={groups} />
+                </CardContent>
+                <CardFooter>
+                    <Button variant="outline" asChild className="w-full">
+                      <Link href="/contacts?createGroup=true">
+                        <Users className="mr-2 h-4 w-4" />
+                          Create New Group 
+                      </Link>
+                    </Button>
+                </CardFooter>
+              </Card>
             </div>
           </div>
         </>
