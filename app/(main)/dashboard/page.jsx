@@ -18,6 +18,8 @@ import {
 } from "@/components/ui/card"
 import  ExpenseSummary  from "./components/expense-summary";
 import { BalanceSummary } from "./components/balance-summary";
+import { GroupList } from "./components/group-list";
+
 
 const DashboardPage = () => {
   const {data: balances, isLoading: balancesLoading} = useConvexQuery(api.dashboard.getUserBalances);
@@ -164,7 +166,7 @@ const DashboardPage = () => {
                   </Button>
                 </CardHeader>
                 <CardContent>
-                  <BalanceSummary groups={groups} />
+                  <GroupList groups={groups} />
                 </CardContent>
                 <CardFooter>
                     <Button variant="outline" asChild className="w-full">

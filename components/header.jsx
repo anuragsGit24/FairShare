@@ -33,7 +33,7 @@ const Header = () => {
             <Link href="#features" className="text-sm font-medium hover:text-green-600 transition">
             Features
             </Link>
-            <Link href="#features" className="text-sm font-medium hover:text-green-600 transition">
+            <Link href="#how-it-works" className="text-sm font-medium hover:text-green-600 transition">
             How It Works
             </Link>
           </div>
