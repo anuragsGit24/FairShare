@@ -73,5 +73,26 @@ export const getExpensesBetweenUsers = query({
         if(split) balance -= split.amount; //i owe them
       }
     }
+
+    for (const s of settlements) {
+      if(s.paidByUserId === me._id){
+        balance += s.amount; //i paid them
+      } else{
+        balance -= s.amount; //they paid me, so reduce what they owe
+      }
+    }
+
+    // 5. Return payload
+    return {
+      expenses,
+      settlements,
+      otherUser: {
+        id: other._id,
+        name: other.name,
+        email: other.email,
+        imageUrl: other.imageUrl,
+        },
+      balance, //positive means they owe me, negative means i owe them
+      };
   }, 
 })  
