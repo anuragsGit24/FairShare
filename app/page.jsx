@@ -32,8 +32,8 @@ export default function Home() {
             </Button>
 
             <Button 
-            variant="outline" a
-            sChild 
+            variant="outline" 
+            asChild 
             size="lg" 
             className="border-green-600 text-green-600 hover:bg-green-50">
               <Link href="#how-it-works">

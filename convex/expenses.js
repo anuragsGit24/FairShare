@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import {query} from "./_generated/server";
+import { internal } from "./_generated/api";
 
 export const getExpensesBetweenUsers = query({
   args: {userId: v.id("users")},
@@ -83,6 +84,9 @@ export const getExpensesBetweenUsers = query({
     }
 
     // 5. Return payload
+    const other = await ctx.db.get(userId);
+    if (!other) throw new Error("User not found");
+
     return {
       expenses,
       settlements,
@@ -95,4 +99,4 @@ export const getExpensesBetweenUsers = query({
       balance, //positive means they owe me, negative means i owe them
       };
   }, 
-})  
+}); 

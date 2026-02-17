@@ -26,7 +26,7 @@ export function BalanceSummary({ balances }) {
           <div className="space-y-3">
             {oweDetails.youAreOwedBy.map((item) => (
               <Link
-                href={`/person/₹{item.userId}`}
+                href={`/person/${item.userId}`}
                 key={item.userId}
                 className="flex items-center justify-between hover:bg-muted p-2 rounded-md transition-colors"
               >
@@ -55,7 +55,7 @@ export function BalanceSummary({ balances }) {
           <div className="space-y-3">
             {oweDetails.youOwe.map((item) => (
               <Link
-                href={`/person/₹{item.userId}`}
+                href={`/person/${item.userId}`}
                 key={item.userId}
                 className="flex items-center justify-between hover:bg-muted p-2 rounded-md transition-colors"
               >
