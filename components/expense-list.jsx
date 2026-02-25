@@ -38,7 +38,7 @@ export function ExpenseList({
     // This is a simplified fallback
     return {
       name:
-        userId === currentUser?._id
+        currentUser && userId === currentUser._id
           ? "You"
           : userLookupMap[userId]?.name || "Other User",
       imageUrl: null,
@@ -76,7 +76,7 @@ export function ExpenseList({
     <div className="flex flex-col gap-4">
       {expenses.map((expense) => {
         const payer = getUserDetails(expense.paidByUserId, expense);
-        const isCurrentUserPayer = expense.paidByUserId === currentUser?._id;
+        const isCurrentUserPayer = currentUser && expense.paidByUserId === currentUser._id;
         const category = getCategoryById(expense.category);
         const CategoryIcon = getCategoryIcon(category.id);
         const showDeleteOption = canDeleteExpense(expense);
@@ -115,7 +115,7 @@ export function ExpenseList({
                 <div className="flex items-center gap-2">
                   <div className="text-right">
                     <div className="font-medium">
-                      ${expense.amount.toFixed(2)}
+                      ₹{expense.amount.toFixed(2)}
                     </div>
                     {isGroupExpense ? (
                       <Badge variant="outline" className="mt-1">
@@ -175,7 +175,7 @@ export function ExpenseList({
                           </AvatarFallback>
                         </Avatar>
                         <span>
-                          {isCurrentUser ? "You" : splitUser.name}: $
+                          {isCurrentUser ? "You" : splitUser.name}: ₹
                           {split.amount.toFixed(2)}
                         </span>
                       </Badge>

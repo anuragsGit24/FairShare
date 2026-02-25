@@ -23,6 +23,8 @@ const PersonPage = () => {
     api.expenses.getExpensesBetweenUsers,
     { userId: params.id }
   );
+
+  const { data: currentUser } = useConvexQuery(api.users.getCurrentUser);
   
   if(isLoading) {
     return (
@@ -134,11 +136,16 @@ const PersonPage = () => {
           <ExpenseList 
             expenses={expenses} 
             showOtherPerson={false} 
-            otherPersonId={params.id}/>
+            otherPersonId={params.id}
+            userLookupMap={{ [otherUser?.id]: otherUser }}
+          />
         </TabsContent>
 
         <TabsContent value="settlements" className="space-y-4">
-          <SettlementList settlements={settlements} />
+          <SettlementList 
+            settlements={settlements} 
+            userLookupMap={{ [otherUser?.id]: otherUser }}
+          />
         </TabsContent>
       </Tabs>
 
