@@ -1,6 +1,10 @@
 import React from "react";
 
-const SettlementsList = () => {
+const SettlementsList = ({
+  settlements,
+  isGroupSettlement = false,
+  userLookupMap = {},
+}) => {
   return (
     <div>Settlements-list</div>
   );
