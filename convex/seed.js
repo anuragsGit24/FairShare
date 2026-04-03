@@ -1,5 +1,6 @@
 // convex/seed.js
 import { mutation } from "./_generated/server";
+import { v } from "convex/values";
 
 /**
  * Seed database with dummy data using your existing users
@@ -58,6 +59,65 @@ export const seedDatabase = mutation({
         groupExpenses: groupExpenses.length,
         settlements: settlements.length,
       },
+    };
+  },
+});
+
+/**
+ * Seed one 1:1 debt for a specific user.
+ * Run with: npx convex run seed:seedDebtForUser '{"userId":"<users_id>"}'
+ */
+export const seedDebtForUser = mutation({
+  args: {
+    userId: v.optional(v.id("users")),
+  },
+  handler: async (ctx, args) => {
+    const targetUserId =
+      args.userId ?? "j57005wswdkf8k7rmqz81wdqah7ypte2";
+
+    const targetUser = await ctx.db.get(targetUserId);
+    if (!targetUser) {
+      return {
+        success: false,
+        error: "Target user not found",
+      };
+    }
+
+    const users = await ctx.db.query("users").collect();
+    const counterparty = users.find((u) => u._id !== targetUserId);
+
+    if (!counterparty) {
+      return {
+        success: false,
+        error: "Need at least one additional user to create debt",
+      };
+    }
+
+    const now = Date.now();
+    const amount = 2000;
+
+    const expenseId = await ctx.db.insert("expenses", {
+      description: `Seed debt for ${targetUser.name}`,
+      amount,
+      category: "test",
+      date: now,
+      paidByUserId: counterparty._id,
+      splitType: "equal",
+      splits: [
+        { userId: counterparty._id, amount: amount / 2, paid: true },
+        { userId: targetUserId, amount: amount / 2, paid: false },
+      ],
+      createdBy: counterparty._id,
+    });
+
+    return {
+      success: true,
+      expenseId,
+      debtorUserId: targetUserId,
+      debtorEmail: targetUser.email,
+      creditorUserId: counterparty._id,
+      creditorEmail: counterparty.email,
+      debtAmount: amount / 2,
     };
   },
 });
