@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import {query} from "./_generated/server";
+import {mutation, query} from "./_generated/server";
 import { internal } from "./_generated/api";
 
 export const getExpensesBetweenUsers = query({
@@ -100,3 +100,96 @@ export const getExpensesBetweenUsers = query({
       };
   }, 
 }); 
+
+// Delete an expense
+export const deleteExpense = mutation({
+  args: {
+    expenseId: v.id("expenses"),
+  },
+  handler: async (ctx, args) => {
+    // Get the current user
+    const user = await ctx.runQuery(internal.users.getCurrentUser);
+
+    // Get the expense
+    const expense = await ctx.db.get(args.expenseId);
+    if (!expense) {
+      throw new Error("Expense not found");
+    }
+
+    // Check if user is authorized to delete this expense
+    // Only the creator of the expense or the payer can delete it
+    if (expense.createdBy !== user._id && expense.paidByUserId !== user._id) {
+      throw new Error("You don't have permission to delete this expense");
+    }
+
+    // Delete any settlements that specifically reference this expense
+    // Since we can't use array.includes directly in the filter, we'll
+    // fetch all settlements and then filter in memory
+    const allSettlements = await ctx.db.query("settlements").collect();
+
+    const relatedSettlements = allSettlements.filter(
+      (settlement) =>
+        settlement.relatedExpenseIds !== undefined &&
+        settlement.relatedExpenseIds.includes(args.expenseId)
+    );
+
+    for (const settlement of relatedSettlements) {
+      // Remove this expense ID from the relatedExpenseIds array
+      const updatedRelatedExpenseIds = settlement.relatedExpenseIds.filter(
+        (id) => id !== args.expenseId
+      );
+
+      if (updatedRelatedExpenseIds.length === 0) {
+        // If this was the only related expense, delete the settlement
+        await ctx.db.delete(settlement._id);
+      } else {
+        // Otherwise update the settlement to remove this expense ID
+        await ctx.db.patch(settlement._id, {
+          relatedExpenseIds: updatedRelatedExpenseIds,
+        });
+      }
+    }
+
+    // Delete the expense
+    await ctx.db.delete(args.expenseId);
+
+    return { success: true };
+  },
+});
+
+export const createExpense = mutation({
+  args: {
+    description: v.string(),
+    amount: v.number(),
+    category: v.optional(v.string()),
+    date: v.number(), //timestamp
+    paidByUserId: v.id("users"),
+    splitType: v.string(), // "equal" or "percentage", or "exact"
+    splits: v.array(
+      v.object({
+        userId: v.id("users"),
+        amount: v.number(), //for "exact" splitType, this is the exact amount. For "equal" and "percentage", this is ignored
+        paid: v.boolean(),
+      })
+    ),
+    groupId: v.optional(v.id("groups")),
+  },
+  handler: async (ctx, args) => {
+    const user = await ctx.runQuery(internal.users.getCurrentUser);
+
+    // Basic validation
+    if(args.groupdId){
+      const group = await ctx.db.get(args.groupId);
+      if(!group) {
+        throw new Error("Group not found");
+      }
+
+      const isMember = group.members.some(
+        (member) => member.userId === user._id
+      );
+      if (!isMember) {
+        throw new Error("You are not a member of this group");
+      }
+    }
+  }
+});
