@@ -178,7 +178,7 @@ export const createExpense = mutation({
     const user = await ctx.runQuery(internal.users.getCurrentUser);
 
     // Basic validation
-    if(args.groupdId){
+    if(args.groupId){
       const group = await ctx.db.get(args.groupId);
       if(!group) {
         throw new Error("Group not found");
@@ -191,5 +191,28 @@ export const createExpense = mutation({
         throw new Error("You are not a member of this group");
       }
     }
+
+    //verify that splits add upto the total amounnt a(with small tolerance for rounding errors)
+    const totalSplitAmount = args.splits.reduce(
+      (sum, split) => sum + split.amount,
+      0
+    );
+    const tolerance = 0.01; //tolerance of small rounding errors
+    if(Math.abs(totalSplitAmount - args.amount) > tolerance){
+      throw new Error("Split amounts must add up to the total amount");
+    }
+
+    const expenseId = await ctx.db.insert("expenses", {
+      description: args.description,
+      amount: args.amount,
+      category: args.category || "Other",
+      date: args.date,
+      paidByUserId: args.paidByUserId,
+      splitType: args.splitType,
+      splits: args.splits,
+      groupId: args.groupId,
+      createdBy: user._id,
+    });
+    return expenseId;
   }
 });
