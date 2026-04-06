@@ -26,18 +26,21 @@ const NewExpensePage = () => {
                 <TabsTrigger value="individual">Individual</TabsTrigger>
                 <TabsTrigger value="group">Group</TabsTrigger>
               </TabsList>
+              
               <TabsContent value="individual" className="mt-0">
                 <ExpenseForm 
                 type="individual" 
                 onSuccess={(id) => router.push(`/person/${id}`)}
                 />
               </TabsContent>
+
               <TabsContent value="group" className="mt-2">
                 <ExpenseForm 
                   type="group" 
                   onSuccess={(id) => router.push(`/groups/${id}`)}
                 />
               </TabsContent>
+
             </Tabs>
           </CardContent>
         </Card>
