@@ -115,7 +115,13 @@ const ExpenseForm = ({ type, onSuccess }) => {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-2">
             <Label htmlFor="category">Category</Label>
-            <CategorySelector />
+            <CategorySelector categories={categories || []} 
+            onChange={(categoryId) => {
+              if(categoryId){
+                setValue("category", categoryId);
+              }
+            }}
+            />
           </div>
 
           <div className="space-y-2">
