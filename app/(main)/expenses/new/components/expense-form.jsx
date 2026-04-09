@@ -6,7 +6,7 @@ import { useConvexMutation, useConvexQuery } from "@/hooks/use-convex-query";
 import { getAllCategories } from "@/lib/expense-categories";
 import { currentUser } from "@clerk/nextjs/server";
 import { zodResolver } from "@hookform/resolvers/zod";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { Label } from "@/components/ui/label";
 import { z } from "zod";
@@ -24,7 +24,8 @@ import CategorySelector from "./category-selector";
 import GroupSelector from "./group-selector";
 import ParticipantSelector from "./participant-selector";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import SplitSelector from "./split-selector";
+import { SplitSelector } from "./split-selector";
+import { toast } from "sonner";
 
 const expenseSchema = z.object({
   description: z.string().min(1, "Description is required"),
@@ -74,7 +75,68 @@ const ExpenseForm = ({ type, onSuccess }) => {
   const amountValue = watch("amount");
   const paidByUserId = watch("paidByUserId");
 
-  const onSubmit = async (data) => {};
+  //when a user is added or removed, update the participant list 
+  useEffect(() => {
+    if (participants.length === 0 && currentUser) {
+      //always add the current user as a participant by default
+      setParticipants([
+        {
+          id: currentUser._id,
+          name: currentUser.name,
+          email: currentUser.email,
+          imageUrl: currentUser.imageUrl,
+        },
+      ]);
+    }
+  }, [currentUser, participants]);
+    
+  const onSubmit = async (data) => {
+    try{
+      const amount = parseFloat(data.amount);
+
+      //prepare splits in the format expected by the API
+      const formattedSplits = splits.map((split) => ({
+        userId: split.userId,
+        amount: split.amount,
+        paid: split.userId === data.paidByUserId,
+      }));
+
+      //validate that splits add up to the total amount for exact split type
+      const totalSplitAmount = formattedSplits.reduce((sum, split) => sum + split.amount, 0);
+
+      const tolerance = 0.01; // Allow a small tolerance for floating point precision issues
+
+      if(Math.abs(totalSplitAmount - amount) > tolerance){
+        toast.error(
+          `The total split amount (₹${totalSplitAmount.toFixed(2)}) does not equal the total expense amount (₹${amount.toFixed(2)}). Please adjust the splits.`
+        );
+        return;
+      }
+
+      const groupId = type === "individual" ? undefined : data.groupId;
+      //create the expense using the API
+      await createExpense.mutate({
+        description: data.description,
+        amount: amount,
+        category: data.category || "Other",
+        date: data.date.getTime(), // convert to timestamp
+        paidByUserId: data.paidByUserId,
+        splitType: data.splitType,
+        splits: formattedSplits,
+        groupId,
+      });
+
+      toast.success("Expense created successfully!");
+      reset(); //reset form
+      
+      const otherParticipant = participants.find((p) => p.id !== currentUser._id
+      );
+      const otherUserId = otherParticipant?.id;
+      onSuccess(type === "individual" ? otherUserId : groupId); //notify parent to refresh list or navigate
+    } catch (error) {
+      toast.error("Failed to create expense: " + error.message);
+    }
+  };
 
   if (!currentUser) return null;
 
@@ -162,7 +224,19 @@ const ExpenseForm = ({ type, onSuccess }) => {
         {type === "group" && (
           <div className="space-y-2">
             <Label>Group</Label>
-            <GroupSelector />
+            <GroupSelector onChange={(group) => {
+              //only update if the group has changed to prevent loops
+              if(!selectedGroup || selectedGroup.id !== group.id){
+                setSelectedGroup(group);
+                setValue("groupId", group.id);
+
+                //update participants with the group members 
+                if(group.members && Array.isArray(group.members)){
+                  //set the participants once, dont reset if they are the same
+                  setParticipants(group.members);
+                }
+              }
+            }}/>
 
             {!selectedGroup && (
               <p className="text-xs text-amber-600">
@@ -175,7 +249,10 @@ const ExpenseForm = ({ type, onSuccess }) => {
         {type === "individual" && (
           <div className="space-y-2">
             <Label>Participants</Label>
-            <ParticipantSelector />
+            <ParticipantSelector 
+              participants={participants}
+              onParticipantsChange={setParticipants}
+            />
 
             {participants.length <= 1 && (
               <p className="text-xs text-amber-600">
@@ -223,21 +300,39 @@ const ExpenseForm = ({ type, onSuccess }) => {
               <p className="text-sm text-muted-foreground">
                 Split the expense equally for each participant.
               </p>
-              <SplitSelector />
+              <SplitSelector 
+                type="equal"
+                amount={parseFloat(amountValue) || 0}
+                participants={participants}
+                paidByUserId={paidByUserId}
+                onSplitsChange={setSplits}
+              />
             </TabsContent>
 
             <TabsContent value="percentage" className="pt-4">
               <p className="text-sm text-muted-foreground">
                 Split the expense based on a percentage for each participant.
               </p>
-              <SplitSelector />
+              <SplitSelector 
+                type="percentage"
+                amount={parseFloat(amountValue) || 0}
+                participants={participants}
+                paidByUserId={paidByUserId}
+                onSplitsChange={setSplits}
+              />
             </TabsContent>
 
             <TabsContent value="exact" className="pt-4">
               <p className="text-sm text-muted-foreground">
                 Split the expense based on the exact amount for each participant.
               </p>
-              <SplitSelector />
+              <SplitSelector 
+                type="exact"
+                amount={parseFloat(amountValue) || 0}
+                participants={participants}
+                paidByUserId={paidByUserId}
+                onSplitsChange={setSplits}
+              />
             </TabsContent>
 
           </Tabs>
