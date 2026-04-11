@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
+import { mutation, query } from "./_generated/server";
 
 export const createSettlement = mutation({
   args: {
@@ -55,7 +56,7 @@ export const createSettlement = mutation({
   }
 })
 
-export const getSSettlementData = query({
+export const getSettlementData = query({
   args: {
     entityType: v.string(), // "user" or "group"
     entityId: v.string(),  //convex_id (stringform) of the user or group
@@ -70,11 +71,11 @@ export const getSSettlementData = query({
         throw new Error("User not found");
       }
 
-      //gather expenses where either of us paid or appears in splits 
+      // Gather one-to-one expenses where either user paid.
       const myExpenses = await ctx.db
         .query("expenses")
         .withIndex("by_user_and_group", (q) =>       
-          q.eq("paidByUserId", me._id).eq("groupId", null) //one to one expenses
+          q.eq("paidByUserId", me._id).eq("groupId", undefined)
         ).collect();
 
         const otherUserExpenses = await ctx.db
@@ -117,19 +118,25 @@ export const getSSettlementData = query({
             }
           }
           
-          const mySettlements = await ctx.db
+          // Only one-to-one settlements between me and the selected counterpart.
+          const settlements = await ctx.db
             .query("settlements")
-            .withIndex("by_user_and_group", (q) =>
-              q.eq("paidByUserId", me._id).eq("groupId", undefined)
-            ).collect();
-
-          const otherUserSettlements = await ctx.db
-            .query("settlements")
-            .withIndex("by_user_and_group", (q) =>
-              q.eq("paidByUserId", other._id).eq("groupId", undefined)
-            ).collect();
-
-            const settlements = [...mySettlements, ...otherUserSettlements];
+            .filter((q) =>
+              q.and(
+                q.eq(q.field("groupId"), undefined),
+                q.or(
+                  q.and(
+                    q.eq(q.field("paidByUserId"), me._id),
+                    q.eq(q.field("receivedByUserId"), other._id)
+                  ),
+                  q.and(
+                    q.eq(q.field("paidByUserId"), other._id),
+                    q.eq(q.field("receivedByUserId"), me._id)
+                  )
+                )
+              )
+            )
+            .collect();
             
             for(const st of settlements) {
               if(st.paidByUserId === me._id ) {
@@ -154,7 +161,101 @@ export const getSSettlementData = query({
               netBalance: owed - owing, //positive means you receive, negative means I owe them or i should pay them
               };
       } else if(args.entityType === "group") {
-        
+          //group page
+          const group = await ctx.db.get(args.entityId);
+          if(!group) {
+            throw new Error("Group not found");
+          }
+
+          const isMember = group.members.some((m) => m.userId === me._id);
+          if(!isMember) {
+            throw new Error("You are not a member of this group");
+          }
+
+          //expenses for this group
+          const expenses = await ctx.db
+            .query("expenses")
+            .withIndex("by_group", (q) =>
+              q.eq("groupId", group._id))
+            .collect();
+
+            //initialise per-member tallies
+            const balances = {};
+            group.members.forEach((m) => {
+              if(m.userId !== me._id) {
+                balances[m.userId] = {
+                  owed: 0, //they owe me
+                  owing: 0, //i owe them
+                }
+              }
+            });
+            
+
+            //apply expenses 
+            for(const exp of expenses) {
+              if(exp.paidByUserId === me._id) {
+                //i paid, others owe me
+                exp.splits.forEach((split) => {
+                  if(split.userId !== me._id && !split.paid) {
+                    balances[split.userId].owed += split.amount;
+                  }
+                });
+              } else if(balances[exp.paidByUserId]) {
+                //someone else paid, i owe them
+                const split = exp.splits.find((s) => s.userId === me._id && !s.paid);
+                if(split) {
+                  balances[exp.paidByUserId].owing += split.amount;
+                }
+              }
+            }
+          
+          //apply settlements within this group
+          const settlements = await ctx.db
+            .query("settlements")
+            .filter((q) => q.eq(q.field("groupId"), group._id))
+            .collect();
+
+          for(const st of settlements) {
+            //we only care about settlements that involve me or ONE side is me
+            if(st.paidByUserId === me._id && balances[st.receivedByUserId]) {
+              //i paid them => my owing goes down
+              balances[st.receivedByUserId].owing = Math.max(0, balances[st.receivedByUserId].owing - st.amount);
+            }
+
+            if(st.receivedByUserId === me._id && balances[st.paidByUserId]) {
+              //they paid me => my owed goes down or their owing goes down
+              balances[st.paidByUserId].owed = Math.max(0, balances[st.paidByUserId].owed - st.amount);
+            }
+          }
+
+          const members = await Promise.all(
+            Object.keys(balances).map((id) => ctx.db.get(id))
+          );
+
+          const list = Object.keys(balances).map((uid) => {
+            const m = members.find((u) => u && u._id === uid);
+            const {owed, owing} = balances[uid];
+            return {
+              userId: uid,
+              name: m ? m.name : "Unknown",
+              imageUrl: m?.imageUrl,
+              youAreOwed: owed,
+              youOwe: owing,
+              netBalance: owed - owing,
+            }
+          });  
+
+          return {
+            type: "group",
+            group: {
+              groupId: group._id,
+              name: group.name,
+              description: group.description,
+            },
+            balances: list,
+          };
       }
+
+      throw new Error("Invalid entity type; Expected 'user' or 'group'");      
   }
 })
