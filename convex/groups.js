@@ -294,6 +294,139 @@ export const deleteExpense = mutation({
   },
 });
 
+export const addGroupMembers = mutation({
+  args: {
+    groupId: v.id("groups"),
+    memberIds: v.array(v.id("users")),
+  },
+  handler: async (ctx, args) => {
+    const currentUser = await ctx.runQuery(internal.users.getCurrentUser);
+    const group = await ctx.db.get(args.groupId);
+
+    if (!group) {
+      throw new Error("Group not found");
+    }
+
+    const isAdmin = group.members.some(
+      (member) => member.userId === currentUser._id && member.role === "admin"
+    );
+
+    if (!isAdmin) {
+      throw new Error("Only group admins can add members");
+    }
+
+    if (args.memberIds.length === 0) {
+      return { success: true, addedCount: 0 };
+    }
+
+    const existingMemberIds = new Set(group.members.map((member) => member.userId));
+    const membersToAdd = [];
+
+    for (const memberId of args.memberIds) {
+      if (existingMemberIds.has(memberId)) {
+        continue;
+      }
+
+      const user = await ctx.db.get(memberId);
+      if (!user) {
+        throw new Error(`User with id ${memberId} does not exist`);
+      }
+
+      existingMemberIds.add(memberId);
+      membersToAdd.push({
+        userId: memberId,
+        role: "member",
+        joinedAt: Date.now(),
+      });
+    }
+
+    if (membersToAdd.length === 0) {
+      return { success: true, addedCount: 0 };
+    }
+
+    await ctx.db.patch(args.groupId, {
+      members: [...group.members, ...membersToAdd],
+    });
+
+    return {
+      success: true,
+      addedCount: membersToAdd.length,
+    };
+  },
+});
+
+export const removeGroupMember = mutation({
+  args: {
+    groupId: v.id("groups"),
+    userId: v.id("users"),
+  },
+  handler: async (ctx, args) => {
+    const currentUser = await ctx.runQuery(internal.users.getCurrentUser);
+    const group = await ctx.db.get(args.groupId);
+
+    if (!group) {
+      throw new Error("Group not found");
+    }
+
+    const isAdmin = group.members.some(
+      (member) => member.userId === currentUser._id && member.role === "admin"
+    );
+
+    if (!isAdmin) {
+      throw new Error("Only group admins can remove members");
+    }
+
+    const memberToRemove = group.members.find((member) => member.userId === args.userId);
+    if (!memberToRemove) {
+      throw new Error("User is not a member of this group");
+    }
+
+    if (memberToRemove.role === "admin") {
+      throw new Error("Admins cannot be removed from the group");
+    }
+
+    const groupExpenses = await ctx.db
+      .query("expenses")
+      .withIndex("by_group", (q) => q.eq("groupId", args.groupId))
+      .collect();
+
+    const hasExpenseHistory = groupExpenses.some(
+      (expense) =>
+        expense.paidByUserId === args.userId ||
+        expense.splits.some((split) => split.userId === args.userId)
+    );
+
+    if (hasExpenseHistory) {
+      throw new Error(
+        "Cannot remove this member because they have expense history in this group"
+      );
+    }
+
+    const groupSettlements = await ctx.db
+      .query("settlements")
+      .withIndex("by_group", (q) => q.eq("groupId", args.groupId))
+      .collect();
+
+    const hasSettlementHistory = groupSettlements.some(
+      (settlement) =>
+        settlement.paidByUserId === args.userId ||
+        settlement.receivedByUserId === args.userId
+    );
+
+    if (hasSettlementHistory) {
+      throw new Error(
+        "Cannot remove this member because they have settlement history in this group"
+      );
+    }
+
+    await ctx.db.patch(args.groupId, {
+      members: group.members.filter((member) => member.userId !== args.userId),
+    });
+
+    return { success: true };
+  },
+});
+
 export const deleteGroup = mutation({
   args: {
     groupId: v.id("groups"),
@@ -307,9 +440,12 @@ export const deleteGroup = mutation({
       throw new Error("Group not found");
     }
 
-    // Check if user is the creator of the group
-    if (group.createdBy !== currentUser._id) {
-      throw new Error("Only the group creator can delete the group");
+    const isAdmin = group.members.some(
+      (member) => member.userId === currentUser._id && member.role === "admin"
+    );
+
+    if (!isAdmin) {
+      throw new Error("Only group admins can delete the group");
     }
 
     // Delete all expenses associated with this group

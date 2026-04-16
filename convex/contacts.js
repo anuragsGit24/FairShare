@@ -87,7 +87,7 @@ export const createGroup=mutation({
 
     if(!args.name.trim()) throw new Error("Group name cannot be empty");
 
-    const UniqueMembers = new Set(args.members);
+    const UniqueMembers = new Set(args.memberIds);
     UniqueMembers.add(CurrentUser._id);
 
     for(const id of UniqueMembers){

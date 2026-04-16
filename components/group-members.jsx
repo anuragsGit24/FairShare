@@ -4,8 +4,15 @@ import { useConvexQuery } from "@/hooks/use-convex-query";
 import { api } from "@/convex/_generated/api";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { UserMinus } from "lucide-react";
 
-export function GroupMembers({ members }) {
+export function GroupMembers({
+  members,
+  canManageMembers = false,
+  onRemoveMember,
+  removingMemberId = null,
+}) {
   const { data: currentUser } = useConvexQuery(api.users.getCurrentUser);
 
   if (!members || members.length === 0) {
@@ -20,7 +27,12 @@ export function GroupMembers({ members }) {
     <div className="space-y-3">
       {members.map((member) => {
         const isCurrentUser = member.id === currentUser?._id;
-        const isAdmin = member.role === "admin";
+        const isAdminMember = member.role === "admin";
+        const canRemoveMember =
+          canManageMembers &&
+          !isCurrentUser &&
+          !isAdminMember &&
+          typeof onRemoveMember === "function";
 
         return (
           <div key={member.id} className="flex items-center justify-between">
@@ -40,11 +52,25 @@ export function GroupMembers({ members }) {
                     </Badge>
                   )}
                 </div>
-                {isAdmin && (
+                  {isAdminMember && (
                   <span className="text-xs text-muted-foreground">Admin</span>
                 )}
               </div>
             </div>
+
+              {canRemoveMember && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-sm"
+                  className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                  onClick={() => onRemoveMember(member)}
+                  disabled={removingMemberId === member.id}
+                >
+                  <UserMinus className="h-4 w-4" />
+                  <span className="sr-only">Remove member</span>
+                </Button>
+              )}
           </div>
         );
       })}
