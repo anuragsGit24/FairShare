@@ -2,6 +2,90 @@ import { v } from "convex/values";
 import { internal } from "./_generated/api";
 import { mutation, query } from "./_generated/server";
 
+const ROUNDING_TOLERANCE = 0.01;
+
+async function getOutstandingAmountBetween(ctx, { payerId, receiverId, groupId }) {
+  let expenses = [];
+
+  if (groupId) {
+    expenses = await ctx.db
+      .query("expenses")
+      .withIndex("by_group", (q) => q.eq("groupId", groupId))
+      .collect();
+  } else {
+    const payerPaidExpenses = await ctx.db
+      .query("expenses")
+      .withIndex("by_user_and_group", (q) =>
+        q.eq("paidByUserId", payerId).eq("groupId", undefined)
+      )
+      .collect();
+
+    const receiverPaidExpenses = await ctx.db
+      .query("expenses")
+      .withIndex("by_user_and_group", (q) =>
+        q.eq("paidByUserId", receiverId).eq("groupId", undefined)
+      )
+      .collect();
+
+    expenses = [...payerPaidExpenses, ...receiverPaidExpenses];
+  }
+
+  let receiverOwedByPayer = 0;
+
+  for (const exp of expenses) {
+    const payerSplit = exp.splits.find((s) => s.userId === payerId && !s.paid);
+    const receiverSplit = exp.splits.find((s) => s.userId === receiverId && !s.paid);
+
+    if (exp.paidByUserId === receiverId && payerSplit) {
+      // Receiver paid this expense, payer still owes receiver.
+      receiverOwedByPayer += payerSplit.amount;
+    }
+
+    if (exp.paidByUserId === payerId && receiverSplit) {
+      // Payer paid this expense, so receiver owes payer (reduces opposite direction debt).
+      receiverOwedByPayer -= receiverSplit.amount;
+    }
+  }
+
+  const settlements = await ctx.db
+    .query("settlements")
+    .filter((q) =>
+      q.and(
+        q.eq(q.field("groupId"), groupId),
+        q.or(
+          q.and(
+            q.eq(q.field("paidByUserId"), payerId),
+            q.eq(q.field("receivedByUserId"), receiverId)
+          ),
+          q.and(
+            q.eq(q.field("paidByUserId"), receiverId),
+            q.eq(q.field("receivedByUserId"), payerId)
+          )
+        )
+      )
+    )
+    .collect();
+
+  for (const st of settlements) {
+    if (st.paidByUserId === payerId && st.receivedByUserId === receiverId) {
+      // Payer already paid receiver, so this debt direction decreases.
+      receiverOwedByPayer -= st.amount;
+    } else if (
+      st.paidByUserId === receiverId &&
+      st.receivedByUserId === payerId
+    ) {
+      // Receiver paid payer, so this debt direction increases.
+      receiverOwedByPayer += st.amount;
+    }
+  }
+
+  if (Math.abs(receiverOwedByPayer) <= ROUNDING_TOLERANCE) {
+    return 0;
+  }
+
+  return Math.max(0, receiverOwedByPayer);
+}
+
 export const createSettlement = mutation({
   args: {
     amount: v.number(),
@@ -41,6 +125,22 @@ export const createSettlement = mutation({
       if (!isMember(args.paidByUserId) || !isMember(args.receivedByUserId)) {
         throw new Error("Both payer and receiver must be members of the group");
       }
+    }
+
+    const maxSettleAmount = await getOutstandingAmountBetween(ctx, {
+      payerId: args.paidByUserId,
+      receiverId: args.receivedByUserId,
+      groupId: args.groupId,
+    });
+
+    if (maxSettleAmount <= ROUNDING_TOLERANCE) {
+      throw new Error("No pending balance to settle in this direction");
+    }
+
+    if (args.amount - maxSettleAmount > ROUNDING_TOLERANCE) {
+      throw new Error(
+        `Amount exceeds pending balance. Maximum allowed is ₹${maxSettleAmount.toFixed(2)}`
+      );
     }
 
     return await ctx.db.insert("settlements", {

@@ -42,11 +42,43 @@ const SettlementPage = () => {
     return "text-green-600";
   }, [data]);
 
+  const getCounterpartyPendingAmounts = (counterparty) => {
+    if (!counterparty || !data) {
+      return { youOwe: 0, youAreOwed: 0 };
+    }
+
+    if (type === "user") {
+      return {
+        youOwe: data.youOwe || 0,
+        youAreOwed: data.youAreOwed || 0,
+      };
+    }
+
+    return {
+      youOwe: counterparty.youOwe || 0,
+      youAreOwed: counterparty.youAreOwed || 0,
+    };
+  };
+
+  const maxSettleAmount = useMemo(() => {
+    const pending = getCounterpartyPendingAmounts(selectedCounterparty);
+    return direction === "you_pay" ? pending.youOwe : pending.youAreOwed;
+  }, [selectedCounterparty, direction, data, type]);
+
   const openSettleDialog = (counterparty) => {
+    const defaultDirection =
+      type === "user"
+        ? data?.netBalance > 0
+          ? "they_pay"
+          : "you_pay"
+        : counterparty?.netBalance > 0
+          ? "they_pay"
+          : "you_pay";
+
     setSelectedCounterparty(counterparty);
     setAmount("");
     setNote("");
-    setDirection("you_pay");
+    setDirection(defaultDirection);
     setIsSettleOpen(true);
   };
 
@@ -73,6 +105,27 @@ const SettlementPage = () => {
 
     if (!Number.isFinite(parsedAmount) || parsedAmount <= 0) {
       toast.error("Please enter a valid amount greater than 0.");
+      return;
+    }
+
+    const pending = getCounterpartyPendingAmounts(selectedCounterparty);
+    if (pending.youOwe <= 0 && pending.youAreOwed <= 0) {
+      toast.error("No pending balance to settle.");
+      return;
+    }
+
+    const allowedAmount = direction === "you_pay" ? pending.youOwe : pending.youAreOwed;
+    if (allowedAmount <= 0) {
+      toast.error(
+        direction === "you_pay"
+          ? "You do not owe this person right now."
+          : "This person does not owe you right now."
+      );
+      return;
+    }
+
+    if (parsedAmount - allowedAmount > 0.01) {
+      toast.error(`Amount exceeds pending balance. Max allowed is ₹${allowedAmount.toFixed(2)}.`);
       return;
     }
 
@@ -117,9 +170,13 @@ const SettlementPage = () => {
         </Button>
 
         {type === "user" && data.counterpart && (
-          <Button onClick={() => openSettleDialog(data.counterpart)} className="bg-green-600 hover:bg-green-700 text-white">
+          <Button
+            onClick={() => openSettleDialog(data.counterpart)}
+            className="bg-green-600 hover:bg-green-700 text-white"
+            disabled={data.netBalance === 0}
+          >
             <ArrowLeftRight className="mr-2 h-4 w-4" />
-            Settle Up
+            {data.netBalance === 0 ? "All Settled" : "Settle Up"}
           </Button>
         )}
       </div>
@@ -250,9 +307,10 @@ const SettlementPage = () => {
                   onClick={() => openSettleDialog(member)}
                   variant="outline"
                   className="border-green-200 text-green-700 hover:bg-green-50 hover:text-green-800"
+                  disabled={member.netBalance === 0}
                 >
                   <ArrowLeftRight className="mr-2 h-4 w-4" />
-                  Settle Up
+                  {member.netBalance === 0 ? "Settled" : "Settle Up"}
                 </Button>
               </div>
             ))}
@@ -277,10 +335,14 @@ const SettlementPage = () => {
                 type="number"
                 step="any"
                 min="0"
+                max={maxSettleAmount > 0 ? maxSettleAmount : undefined}
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
                 placeholder="0.00"
               />
+              <p className="text-xs text-muted-foreground">
+                Max allowed for this direction: ₹{Math.max(0, maxSettleAmount || 0).toFixed(2)}
+              </p>
             </div>
 
             <div className="space-y-2">

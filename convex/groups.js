@@ -53,11 +53,11 @@ export const getUserGroups = query({
         // Calculate from settlements
         for (const settlement of settlements) {
           if (settlement.paidByUserId === currentUser._id) {
-            // User paid settlement, so they received money
+            // User paid someone else, reducing what they owe.
             balance += settlement.amount;
           } else if (settlement.receivedByUserId === currentUser._id) {
-            // User received settlement, so they got money
-            balance += settlement.amount;
+            // User received money, reducing what others owe them.
+            balance -= settlement.amount;
           }
         }
 

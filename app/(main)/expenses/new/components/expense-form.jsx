@@ -4,7 +4,6 @@ import { Input } from "@/components/ui/input";
 import { api } from "@/convex/_generated/api";
 import { useConvexMutation, useConvexQuery } from "@/hooks/use-convex-query";
 import { getAllCategories } from "@/lib/expense-categories";
-import { currentUser } from "@clerk/nextjs/server";
 import { zodResolver } from "@hookform/resolvers/zod";
 import React, { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
@@ -38,7 +37,7 @@ const expenseSchema = z.object({
   category: z.string().optional(),
   date: z.date(),
   paidByUserId: z.string().min(1, "Payer is required"),
-  splitType: z.enum(["equal", "percentage", "exact"]),
+  splitType: z.enum(["equal", "percentage", "exact", "full"]),
   groupId: z.string().optional(),
 });
 
@@ -47,6 +46,7 @@ const ExpenseForm = ({ type, onSuccess }) => {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [selectedGroup, setSelectedGroup] = useState(null);
   const [splits, setSplits] = useState([]);
+  const [fullResponsibilityUserId, setFullResponsibilityUserId] = useState("");
 
   const { data: currentUser } = useConvexQuery(api.users.getCurrentUser);
   const createExpense = useConvexMutation(api.expenses.createExpense);
@@ -89,17 +89,53 @@ const ExpenseForm = ({ type, onSuccess }) => {
       ]);
     }
   }, [currentUser, participants]);
+
+  useEffect(() => {
+    if (participants.length === 0) {
+      setFullResponsibilityUserId("");
+      return;
+    }
+
+    const stillValid = participants.some(
+      (participant) => participant.id === fullResponsibilityUserId
+    );
+
+    if (!stillValid) {
+      const fallbackId = participants.some((participant) => participant.id === paidByUserId)
+        ? paidByUserId
+        : currentUser && participants.some((participant) => participant.id === currentUser._id)
+          ? currentUser._id
+          : participants[0].id;
+
+      setFullResponsibilityUserId(fallbackId);
+    }
+  }, [participants, fullResponsibilityUserId, paidByUserId, currentUser]);
     
   const onSubmit = async (data) => {
     try{
       const amount = parseFloat(data.amount);
 
-      //prepare splits in the format expected by the API
-      const formattedSplits = splits.map((split) => ({
-        userId: split.userId,
-        amount: split.amount,
-        paid: split.userId === data.paidByUserId,
-      }));
+      let formattedSplits = [];
+
+      if (data.splitType === "full") {
+        if (!fullResponsibilityUserId) {
+          toast.error("Please select who is responsible for this expense.");
+          return;
+        }
+
+        formattedSplits = participants.map((participant) => ({
+          userId: participant.id,
+          amount: participant.id === fullResponsibilityUserId ? amount : 0,
+          paid: participant.id === data.paidByUserId,
+        }));
+      } else {
+        //prepare splits in the format expected by the API
+        formattedSplits = splits.map((split) => ({
+          userId: split.userId,
+          amount: split.amount,
+          paid: split.userId === data.paidByUserId,
+        }));
+      }
 
       //validate that splits add up to the total amount for exact split type
       const totalSplitAmount = formattedSplits.reduce((sum, split) => sum + split.amount, 0);
@@ -290,10 +326,13 @@ const ExpenseForm = ({ type, onSuccess }) => {
             defaultValue="equal" 
             onValueChange={(value) => setValue("splitType", value)}
           >
-            <TabsList className="grid w-full grid-cols-3">
+            <TabsList className={`grid w-full ${type === "individual" ? "grid-cols-4" : "grid-cols-3"}`}>
               <TabsTrigger value="equal">Equal Split</TabsTrigger>
               <TabsTrigger value="percentage">Percentage</TabsTrigger>
               <TabsTrigger value="exact">Exact Amounts</TabsTrigger>
+              {type === "individual" && (
+                <TabsTrigger value="full">Single Person</TabsTrigger>
+              )}
             </TabsList>
 
             <TabsContent value="equal" className="pt-4">
@@ -334,6 +373,39 @@ const ExpenseForm = ({ type, onSuccess }) => {
                 onSplitsChange={setSplits}
               />
             </TabsContent>
+
+            {type === "individual" && (
+              <TabsContent value="full" className="pt-4 space-y-3">
+                <p className="text-sm text-muted-foreground">
+                  Assign 100% of this expense to one person. Useful when only one person is responsible.
+                </p>
+
+                <div className="space-y-2">
+                  <Label>Responsible Person</Label>
+                  <select
+                    value={fullResponsibilityUserId}
+                    onChange={(event) => setFullResponsibilityUserId(event.target.value)}
+                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  >
+                    <option value="">Select person</option>
+                    {participants.map((participant) => (
+                      <option key={participant.id} value={participant.id}>
+                        {participant.id === currentUser._id ? "You" : participant.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <SplitSelector
+                  type="full"
+                  amount={parseFloat(amountValue) || 0}
+                  participants={participants}
+                  paidByUserId={paidByUserId}
+                  responsibleUserId={fullResponsibilityUserId}
+                  onSplitsChange={setSplits}
+                />
+              </TabsContent>
+            )}
 
           </Tabs>
         </div>

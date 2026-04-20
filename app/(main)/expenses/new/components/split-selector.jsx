@@ -11,6 +11,7 @@ export function SplitSelector({
   amount,
   participants,
   paidByUserId,
+  responsibleUserId,
   onSplitsChange,
 }) {
   const { user } = useUser();
@@ -62,6 +63,21 @@ export function SplitSelector({
         percentage: (evenAmount / amount) * 100,
         paid: participant.id === paidByUserId,
       }));
+    } else if (type === "full") {
+      const assignedUserId = responsibleUserId || paidByUserId;
+
+      newSplits = participants.map((participant) => {
+        const participantAmount = participant.id === assignedUserId ? amount : 0;
+        return {
+          userId: participant.id,
+          name: participant.name,
+          email: participant.email,
+          imageUrl: participant.imageUrl,
+          amount: participantAmount,
+          percentage: amount > 0 ? (participantAmount / amount) * 100 : 0,
+          paid: participant.id === paidByUserId,
+        };
+      });
     }
 
     setSplits(newSplits);
@@ -83,7 +99,14 @@ export function SplitSelector({
     if (onSplitsChange) {
       onSplitsChange(newSplits);
     }
-  }, [type, amount, participants, paidByUserId, onSplitsChange]);
+  }, [
+    type,
+    amount,
+    participants,
+    paidByUserId,
+    responsibleUserId,
+    onSplitsChange,
+  ]);
 
   // Update the percentage splits - no automatic adjustment of other values
   const updatePercentageSplit = (userId, newPercentage) => {
@@ -178,7 +201,7 @@ export function SplitSelector({
             </span>
           </div>
 
-          {type === "equal" && (
+          {(type === "equal" || type === "full") && (
             <div className="text-right text-sm">
               ₹{split.amount.toFixed(2)} ({split.percentage.toFixed(1)}%)
             </div>
@@ -250,7 +273,7 @@ export function SplitSelector({
           >
             ₹{totalAmount.toFixed(2)}
           </span>
-          {type !== "equal" && (
+          {type !== "equal" && type !== "full" && (
             <span
               className={`text-sm ml-2 ${!isPercentageValid ? "text-amber-600" : ""}`}
             >
