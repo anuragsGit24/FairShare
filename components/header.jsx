@@ -10,26 +10,43 @@ import { usePathname } from "next/navigation";
 import { Authenticated, Unauthenticated } from "convex/react";
 import { Button } from "./ui/button";
 import { LayoutDashboard } from "lucide-react";
+import ThemeToggle from "./theme-toggle";
+import { useTheme } from "next-themes";
+import { useEffect, useState } from "react";
 
 const Header = () => {
   const { isLoading } = useStoreUserEffect();
   const path = usePathname();
+  const { theme } = useTheme();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  const isDarkTheme = mounted && theme === "dark";
 
   return (
-    <header className="fixed top-0 w-full border-b bg-white/95 backdrop-blur z-50 supports-[backdrop-filter]:bg-white/60">
-      <nav className="container mx-auto px-4 h-16 flex items-center justify-between">
-        <Link href="/" className="flex items-center gap-2">
-          <Image
-            src={"/logos/FairShare-logo.png"}
-            alt="FairShare Logo"
-            width={1600}
-            height={480}
-            className="h-16 w-auto object-contain"
-          />
+    <header className="fixed top-0 w-full border-b bg-background/95 backdrop-blur z-50 supports-[backdrop-filter]:bg-background/80">
+      <nav className="container mx-auto px-4 h-16 flex items-center relative">
+        <Link href="/" className="flex items-center gap-2 shrink-0">
+          {isDarkTheme ? (
+            <span className="text-green-500 font-extrabold text-2xl sm:text-3xl leading-none tracking-tight">
+              FairShare
+            </span>
+          ) : (
+            <Image
+              src="/logos/FairShare-logo.png"
+              alt="FairShare Logo"
+              width={1600}
+              height={480}
+              className="h-14 sm:h-14 w-auto object-contain"
+            />
+          )}
         </Link>
 
         {path==='/' && (
-          <div className="hideen md:flex items-center gap-6">
+          <div className="hidden md:flex items-center gap-10 absolute left-1/2 -translate-x-1/2">
             <Link href="#features" className="text-sm font-medium hover:text-green-600 transition">
             Features
             </Link>
@@ -39,7 +56,9 @@ const Header = () => {
           </div>
         )}
 
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-4 ml-auto">
+          <ThemeToggle />
+
           <Authenticated>
             <Link href="/dashboard">
               <Button variant="outline"

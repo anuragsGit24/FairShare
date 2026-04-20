@@ -6,6 +6,7 @@ import { ConvexClientProvider } from "@/components/convex-client-provider";
 import { ClerkProvider } from "@clerk/nextjs";
 import { Toaster } from "sonner";
 import { Analytics } from "@vercel/analytics/next";
+import { ThemeProvider } from "@/components/theme-provider";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -16,20 +17,22 @@ export const metadata = {
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
     <head>
       <link rel="icon" href="logos/logo-f.png" sizes="any" />
     </head>
       
       <body className={`${inter.className}`}>
       <ClerkProvider>
-        <ConvexClientProvider>
-        <Header/>
-        <main className="min-h-screen">
-          {children}
-          <Toaster richColors />
-        </main>
-      </ConvexClientProvider>
+        <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false}>
+          <ConvexClientProvider>
+            <Header/>
+            <main className="min-h-screen">
+              {children}
+              <Toaster richColors />
+            </main>
+          </ConvexClientProvider>
+        </ThemeProvider>
       </ClerkProvider>
       <Analytics />
       </body>

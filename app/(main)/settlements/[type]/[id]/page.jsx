@@ -163,7 +163,7 @@ const SettlementPage = () => {
   }
 
   return (
-    <div className="container mx-auto py-8 max-w-6xl px-4 space-y-6">
+    <div className="container mx-auto py-5 sm:py-8 max-w-6xl px-3 sm:px-4 space-y-5 sm:space-y-6">
       <div className="flex items-center justify-between">
         <Button variant="outline" size="sm" onClick={() => router.back()}>
           <ArrowLeft className="mr-2 h-4 w-4" /> Back
@@ -181,16 +181,16 @@ const SettlementPage = () => {
         )}
       </div>
 
-      <section className="rounded-2xl border border-green-100 bg-gradient-to-br from-green-50 via-white to-teal-50 p-6 md:p-8">
-        <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
+      <section className="rounded-2xl border border-green-100/70 bg-gradient-to-br from-green-50 via-background to-teal-50 p-4 sm:p-6 md:p-8 dark:from-green-950/30 dark:via-card dark:to-teal-950/20 dark:border-green-900/50">
+        <div className="flex flex-col gap-5 sm:gap-6 lg:flex-row lg:items-start lg:justify-between">
           <div className="space-y-2">
             <Badge className="bg-green-600 text-white hover:bg-green-700">
               {type === "user" ? "Individual Settlement" : "Group Settlement"}
             </Badge>
-            <h1 className="text-3xl md:text-4xl font-bold gradient-title pb-0 pr-0">
+            <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold gradient-title pb-0 pr-0">
               Settlement Details
             </h1>
-            <p className="text-muted-foreground max-w-2xl">
+            <p className="text-muted-foreground max-w-2xl text-sm sm:text-base">
               Review your balances and settle dues quickly with a clean, one-step flow.
             </p>
           </div>
@@ -210,7 +210,7 @@ const SettlementPage = () => {
       </section>
 
       {type === "user" && data.counterpart && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 sm:gap-4">
           <Card className="lg:col-span-1 border-green-100">
             <CardContent className="pt-6">
               <div className="flex items-center gap-3">
@@ -229,14 +229,14 @@ const SettlementPage = () => {
           <Card className="border-green-100">
             <CardContent className="pt-6">
               <p className="text-sm text-muted-foreground">You are owed</p>
-              <p className="text-2xl font-bold text-green-700 mt-1">₹{data.youAreOwed.toFixed(2)}</p>
+              <p className="text-xl sm:text-2xl font-bold text-green-700 mt-1">₹{data.youAreOwed.toFixed(2)}</p>
             </CardContent>
           </Card>
 
           <Card className="border-green-100">
             <CardContent className="pt-6">
               <p className="text-sm text-muted-foreground">You owe</p>
-              <p className="text-2xl font-bold text-red-700 mt-1">₹{data.youOwe.toFixed(2)}</p>
+              <p className="text-xl sm:text-2xl font-bold text-red-700 mt-1">₹{data.youOwe.toFixed(2)}</p>
             </CardContent>
           </Card>
 
@@ -244,7 +244,7 @@ const SettlementPage = () => {
             <CardContent className="pt-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <div>
                 <p className="text-sm text-muted-foreground">Net balance</p>
-                <p className={`text-3xl font-bold ${netTone}`}>₹{Math.abs(data.netBalance).toFixed(2)}</p>
+                <p className={`text-2xl sm:text-3xl font-bold ${netTone}`}>₹{Math.abs(data.netBalance).toFixed(2)}</p>
                 <p className="text-sm text-muted-foreground mt-1">
                   {data.netBalance === 0
                     ? "You are all settled up"
@@ -276,9 +276,9 @@ const SettlementPage = () => {
             {data.balances.map((member) => (
               <div
                 key={member.userId}
-                className="rounded-xl border border-green-100 bg-white p-4 flex flex-col md:flex-row md:items-center gap-4"
+                className="rounded-xl border border-green-100 bg-card p-4 flex flex-col md:flex-row md:items-center gap-4"
               >
-                <div className="flex items-center gap-3 min-w-0 md:w-[280px]">
+                <div className="flex items-center gap-3 min-w-0 md:w-[240px] lg:w-[280px]">
                   <Avatar className="h-10 w-10 ring-2 ring-green-100">
                     <AvatarImage src={member.imageUrl} />
                     <AvatarFallback>{member.name?.charAt(0) || "?"}</AvatarFallback>
@@ -306,7 +306,7 @@ const SettlementPage = () => {
                 <Button
                   onClick={() => openSettleDialog(member)}
                   variant="outline"
-                  className="border-green-200 text-green-700 hover:bg-green-50 hover:text-green-800"
+                  className="border-green-200 text-green-700 hover:bg-green-50 hover:text-green-800 w-full md:w-auto"
                   disabled={member.netBalance === 0}
                 >
                   <ArrowLeftRight className="mr-2 h-4 w-4" />
@@ -319,7 +319,7 @@ const SettlementPage = () => {
       )}
 
       <Dialog open={isSettleOpen} onOpenChange={(open) => (open ? setIsSettleOpen(true) : closeSettleDialog())}>
-        <DialogContent>
+        <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Settle Up</DialogTitle>
             <DialogDescription>
