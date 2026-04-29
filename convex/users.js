@@ -105,3 +105,27 @@ export const searchUsers = query({
   }));
   },
 });
+
+export const updateUpiId = mutation({
+  args: { upiId: v.string() },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Called updateUpiId without authentication present");
+    }
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_token", (q) =>
+        q.eq("tokenIdentifier", identity.tokenIdentifier)
+      )
+      .unique();
+
+    if (user === null) {
+      throw new Error("User not found");
+    }
+
+    await ctx.db.patch(user._id, { upiId: args.upiId });
+    return user._id;
+  },
+});

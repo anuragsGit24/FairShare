@@ -14,6 +14,7 @@ import { ArrowLeft, ArrowLeftRight, CheckCircle2, User, Users } from "lucide-rea
 import { api } from "@/convex/_generated/api";
 import { useConvexMutation, useConvexQuery } from "@/hooks/use-convex-query";
 import { toast } from "sonner";
+import { UpiQrCode } from "@/components/UpiQrCode";
 
 const SettlementPage = () => {
   const params = useParams();
@@ -368,6 +369,16 @@ const SettlementPage = () => {
                 placeholder="e.g. UPI transfer"
               />
             </div>
+
+            {direction === "you_pay" && selectedCounterparty?.upiId && (
+              <div className="pt-4 border-t mt-4">
+                <UpiQrCode 
+                  payeeVpa={selectedCounterparty.upiId} 
+                  payeeName={selectedCounterparty.name} 
+                  amount={Number(amount) || maxSettleAmount || 0} 
+                />
+              </div>
+            )}
           </div>
 
           <DialogFooter>

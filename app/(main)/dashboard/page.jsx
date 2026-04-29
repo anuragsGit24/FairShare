@@ -1,8 +1,8 @@
 "use client";
 
 import React from "react"
-import {useConvexQuery} from "@/hooks/use-convex-query";
-import {api} from "@/convex/_generated/api";
+import { useConvexQuery } from "@/hooks/use-convex-query";
+import { api } from "@/convex/_generated/api";
 import { BarLoader } from "react-spinners";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
@@ -16,19 +16,19 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
-import  ExpenseSummary  from "./components/expense-summary";
+import ExpenseSummary from "./components/expense-summary";
 import { BalanceSummary } from "./components/balance-summary";
 import { GroupList } from "./components/group-list";
-
+import { UpiProfileForm } from "@/components/upi-profile-form";
 
 const DashboardPage = () => {
-  const {data: balances, isLoading: balancesLoading} = useConvexQuery(api.dashboard.getUserBalances);
+  const { data: balances, isLoading: balancesLoading } = useConvexQuery(api.dashboard.getUserBalances);
 
-  const {data: groups, isLoading: groupsLoading} = useConvexQuery(api.groups.getUserGroups);
+  const { data: groups, isLoading: groupsLoading } = useConvexQuery(api.groups.getUserGroups);
 
-  const {data: totalSpent, isLoading: totalSpentLoading} = useConvexQuery(api.dashboard.getTotalSpent);
+  const { data: totalSpent, isLoading: totalSpentLoading } = useConvexQuery(api.dashboard.getTotalSpent);
 
-  const {data: monthlySpending, isLoading: monthlySpendingLoading} = useConvexQuery(api.dashboard.getMonthlySpending);
+  const { data: monthlySpending, isLoading: monthlySpendingLoading } = useConvexQuery(api.dashboard.getMonthlySpending);
 
   const isLoading = balancesLoading || groupsLoading || totalSpentLoading || monthlySpendingLoading;
 
@@ -43,13 +43,21 @@ const DashboardPage = () => {
           <div className="flex items-center justify-between">
             <h1 className="text-5xl gradient-title">Dashboard</h1>
 
-            <Button asChild>
-              <Link href="/expenses/new">
-                <PlusCircle className="mr-2 h-4 w-4" />
-                Add Expense
-              </Link>
-            </Button>
+            <div className="flex items-center gap-2 sm:gap-4">
+              <UpiProfileForm />
+              <Button asChild className="bg-green-600 hover:bg-green-700">
+                <Link href="/expenses/new">
+                  <PlusCircle className="mr-2 h-4 w-4" />
+                  <span className="hidden sm:inline">Add Expense</span>
+                  <span className="sm:hidden">Add</span>
+                </Link>
+              </Button>
+            </div>
           </div>
+
+          {/* <div className="mt-6">
+            <UpiProfileForm />
+          </div> */}
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <Card>
@@ -169,12 +177,12 @@ const DashboardPage = () => {
                   <GroupList groups={groups} />
                 </CardContent>
                 <CardFooter>
-                    <Button variant="outline" asChild className="w-full">
-                      <Link href="/contacts?createGroup=true">
-                        <Users className="mr-2 h-4 w-4" />
-                          Create New Group 
-                      </Link>
-                    </Button>
+                  <Button variant="outline" asChild className="w-full">
+                    <Link href="/contacts?createGroup=true">
+                      <Users className="mr-2 h-4 w-4" />
+                      Create New Group
+                    </Link>
+                  </Button>
                 </CardFooter>
               </Card>
             </div>

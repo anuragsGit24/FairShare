@@ -71,6 +71,7 @@ export const getUserBalances = query({
         userId: uid,
         name: counterpart?.name ?? "Unknown",
         imageUrl: counterpart?.imageUrl,
+        upiId: counterpart?.upiId,
         amount: Math.abs(net),
       };
 
