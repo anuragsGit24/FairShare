@@ -194,7 +194,7 @@ export default function GroupExpensesPage() {
               <CardTitle className="text-xl">Group Balances</CardTitle>
             </CardHeader>
             <CardContent>
-              <GroupBalances balances={balances} />
+              <GroupBalances balances={balances} groupId={groupId} />
             </CardContent>
           </Card>
         </div>
