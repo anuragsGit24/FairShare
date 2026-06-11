@@ -17,6 +17,34 @@ function normalizeToDataUrl(imageData) {
   return `data:image/jpeg;base64,${imageData}`;
 }
 
+async function toInlineImagePart(imageData) {
+  if (imageData.startsWith("data:image/")) {
+    const match = imageData.match(/^data:(image\/[a-zA-Z0-9.+-]+);base64,(.+)$/);
+    if (!match) {
+      throw new Error("Invalid base64 image format");
+    }
+
+    return {
+      mimeType: match[1],
+      base64: match[2],
+    };
+  }
+
+  const response = await fetch(imageData);
+  if (!response.ok) {
+    throw new Error(`Failed to fetch receipt image: ${response.status}`);
+  }
+
+  const contentType = response.headers.get("content-type") || "image/jpeg";
+  const arrayBuffer = await response.arrayBuffer();
+  const base64 = Buffer.from(arrayBuffer).toString("base64");
+
+  return {
+    mimeType: contentType,
+    base64,
+  };
+}
+
 function extractJsonArray(text) {
   const firstBracket = text.indexOf("[");
   const lastBracket = text.lastIndexOf("]");
@@ -85,43 +113,35 @@ export const scanReceipt = action({
       if (process.env.GEMINI_API_KEY) {
         const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
         const candidateModels = [
-          "gemini-3.0-flash",
-          "gemini-3.5-flash-latest",
-          "gemini-3.5-flash",
+          "gemini-2.5-flash",
+          "gemini-2.0-flash",
+          "gemini-2.0-flash-lite",
         ];
 
         let lastModelError = null;
 
         for (const modelName of candidateModels) {
           try {
-            const model = genAI.getGenerativeModel({ model: modelName });
+            const model = genAI.getGenerativeModel({
+              model: modelName,
+              systemInstruction: systemPrompt,
+            });
 
-            let resultText = "";
-            if (imageUrlOrData.startsWith("data:image/")) {
-              const match = imageUrlOrData.match(/^data:(image\/[a-zA-Z0-9.+-]+);base64,(.+)$/);
-              if (!match) {
-                throw new Error("Invalid base64 image format");
-              }
-              const mimeType = match[1];
-              const base64 = match[2];
+            const { mimeType, base64 } = await toInlineImagePart(imageUrlOrData);
 
-              const result = await model.generateContent([
-                systemPrompt,
-                {
-                  inlineData: {
-                    mimeType,
-                    data: base64,
+            const result = await model.generateContent([
+                  { 
+                    text: "Parse this receipt image and return JSON only." 
                   },
-                },
-              ]);
-              resultText = result.response.text();
-            } else {
-              const result = await model.generateContent([
-                systemPrompt,
-                `Receipt image URL: ${imageUrlOrData}`,
-              ]);
-              resultText = result.response.text();
-            }
+                  {
+                    inlineData: {
+                      mimeType,
+                      data: base64,
+                    },
+                  },
+            ]);
+
+            const resultText = result.response.text();
 
             const parsed = JSON.parse(extractJsonArray(resultText));
             return validateItems(parsed);
