@@ -6,7 +6,7 @@ import { api } from "@/convex/_generated/api";
 import { BarLoader } from "react-spinners";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
-import { ChevronRight, PlusCircle, Users } from "lucide-react";
+import { ChevronRight, PlusCircle, ScanLine, Users } from "lucide-react";
 import {
   Card,
   CardAction,
@@ -45,6 +45,13 @@ const DashboardPage = () => {
 
             <div className="flex items-center gap-2 sm:gap-4">
               <UpiProfileForm />
+              <Button asChild variant="outline">
+                <Link href="/receipts">
+                  <ScanLine className="mr-2 h-4 w-4" />
+                  <span className="hidden sm:inline">Scan Receipt</span>
+                  <span className="sm:hidden">Scan</span>
+                </Link>
+              </Button>
               <Button asChild className="bg-green-600 hover:bg-green-700">
                 <Link href="/expenses/new">
                   <PlusCircle className="mr-2 h-4 w-4" />

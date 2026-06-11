@@ -1,7 +1,7 @@
 import { useState } from "react";
 import {toast} from "sonner";
 import { useEffect } from "react";
-import { useMutation, useQuery } from "convex/react";
+import { useAction, useMutation, useQuery } from "convex/react";
 
 export const useConvexQuery = (query, ...args) => {
   const result = useQuery(query, ...args);
@@ -43,6 +43,33 @@ export const useConvexMutation = (mutation) => {
 
     try {
       const response = await mutationFn(...args);
+      setData(response);
+      return response;
+    } catch (err) {
+      setError(err);
+      toast.error(err.message);
+      throw err;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return { mutate, data, isLoading, error };
+};
+
+export const useConvexAction = (action) => {
+  const actionFn = useAction(action);
+
+  const [data, setData] = useState(undefined);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState(null);
+
+  const mutate = async (...args) => {
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const response = await actionFn(...args);
       setData(response);
       return response;
     } catch (err) {
