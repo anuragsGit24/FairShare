@@ -45,11 +45,13 @@ export default defineSchema({
     receivedByUserId: v.id("users"), // Reference to users table
     groupId: v.optional(v.id("groups")), // null for one-on-one settlements
     relatedExpenseIds: v.optional(v.array(v.id("expenses"))), // Which expenses this settlement covers
-    createdBy: v.id("users"), // Reference to users table
+      idempotencyKey: v.optional(v.string()),
+      createdBy: v.id("users"), // Reference to users table
   })
     .index("by_group", ["groupId"])
     .index("by_user_and_group", ["paidByUserId", "groupId"])
     .index("by_receiver_and_group", ["receivedByUserId", "groupId"])
+      .index("by_idempotency_key", ["idempotencyKey"])
     .index("by_date", ["date"]),
 
   // Groups

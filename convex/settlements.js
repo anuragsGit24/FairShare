@@ -4,6 +4,14 @@ import { mutation, query } from "./_generated/server";
 
 const ROUNDING_TOLERANCE = 0.01;
 
+function normalizeMoney(amount) {
+  return Math.round(Number(amount) * 100) / 100;
+}
+
+function balancesMatch(actualBalance, expectedBalance) {
+  return Math.abs(Number(actualBalance) - Number(expectedBalance)) <= ROUNDING_TOLERANCE;
+}
+
 async function getOutstandingAmountBetween(ctx, { payerId, receiverId, groupId }) {
   let expenses = [];
 
@@ -86,6 +94,18 @@ async function getOutstandingAmountBetween(ctx, { payerId, receiverId, groupId }
   return Math.max(0, receiverOwedByPayer);
 }
 
+export const getOutstandingBalanceBetween = query({
+  args: {
+    payerId: v.id("users"),
+    receiverId: v.id("users"),
+    groupId: v.optional(v.id("groups")),
+  },
+  handler: async (ctx, args) => {
+    const balance = await getOutstandingAmountBetween(ctx, args);
+    return { balance };
+  },
+});
+
 export const createSettlement = mutation({
   args: {
     amount: v.number(),
@@ -94,8 +114,19 @@ export const createSettlement = mutation({
     receivedByUserId: v.id("users"),
     groupId: v.optional(v.id("groups")), //undefined when settlement is one to one
     relatedExpenseIds: v.optional(v.array(v.id("expenses"))),
+    idempotencyKey: v.string(),
+    expectedBalance: v.number(),
   },
   handler: async(ctx, args) => {
+    const existingSettlement = await ctx.db
+      .query("settlements")
+      .withIndex("by_idempotency_key", (q) => q.eq("idempotencyKey", args.idempotencyKey))
+      .first();
+
+    if (existingSettlement) {
+      return existingSettlement;
+    }
+
     const caller = await ctx.runQuery(internal.users.getCurrentUser);
 
     //basic validation
@@ -127,6 +158,18 @@ export const createSettlement = mutation({
       }
     }
 
+    const actualBalance = await getOutstandingAmountBetween(ctx, {
+      payerId: args.paidByUserId,
+      receiverId: args.receivedByUserId,
+      groupId: args.groupId,
+    });
+
+    if (!balancesMatch(actualBalance, args.expectedBalance)) {
+      throw new Error(
+        "Ledger state has changed. New expenses were added while you were settling. Please review the updated balance and try again."
+      );
+    }
+
     const maxSettleAmount = await getOutstandingAmountBetween(ctx, {
       payerId: args.paidByUserId,
       receiverId: args.receivedByUserId,
@@ -151,6 +194,7 @@ export const createSettlement = mutation({
       receivedByUserId: args.receivedByUserId,
       groupId: args.groupId,
       relatedExpenseIds: args.relatedExpenseIds,
+      idempotencyKey: args.idempotencyKey,
       createdBy: caller._id,
     });
   }

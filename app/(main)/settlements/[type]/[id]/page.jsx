@@ -27,6 +27,7 @@ const SettlementPage = () => {
   const [amount, setAmount] = useState("");
   const [note, setNote] = useState("");
   const [direction, setDirection] = useState("you_pay");
+  const [settlementIdempotencyKey, setSettlementIdempotencyKey] = useState("");
 
   // Fetch settlement data
   const { data, isLoading } = useConvexQuery(api.settlements.getSettlementData, {
@@ -34,6 +35,16 @@ const SettlementPage = () => {
     entityId: id,
   });
   const { data: currentUser } = useConvexQuery(api.users.getCurrentUser);
+  const { data: pairwiseBalanceData } = useConvexQuery(
+    api.settlements.getOutstandingBalanceBetween,
+    selectedCounterparty?.userId && currentUser?._id
+      ? {
+          payerId: direction === "you_pay" ? currentUser._id : selectedCounterparty.userId,
+          receiverId: direction === "you_pay" ? selectedCounterparty.userId : currentUser._id,
+          groupId: type === "group" ? data?.group?.groupId : undefined,
+        }
+      : "skip"
+  );
   const createSettlement = useConvexMutation(api.settlements.createSettlement);
 
   const netTone = useMemo(() => {
@@ -67,6 +78,7 @@ const SettlementPage = () => {
   }, [selectedCounterparty, direction, data, type]);
 
   const openSettleDialog = (counterparty) => {
+    const uniqueKey = crypto.randomUUID();
     const defaultDirection =
       type === "user"
         ? data?.netBalance > 0
@@ -77,6 +89,7 @@ const SettlementPage = () => {
           : "you_pay";
 
     setSelectedCounterparty(counterparty);
+    setSettlementIdempotencyKey(uniqueKey);
     setAmount("");
     setNote("");
     setDirection(defaultDirection);
@@ -89,6 +102,7 @@ const SettlementPage = () => {
     setAmount("");
     setNote("");
     setDirection("you_pay");
+    setSettlementIdempotencyKey("");
   };
 
   const handleSettle = async () => {
@@ -125,6 +139,11 @@ const SettlementPage = () => {
       return;
     }
 
+    if (!settlementIdempotencyKey) {
+      toast.error("Unable to create a settlement key. Please reopen the dialog and try again.");
+      return;
+    }
+
     if (parsedAmount - allowedAmount > 0.01) {
       toast.error(`Amount exceeds pending balance. Max allowed is ₹${allowedAmount.toFixed(2)}.`);
       return;
@@ -132,6 +151,7 @@ const SettlementPage = () => {
 
     const paidByUserId = direction === "you_pay" ? currentUser._id : selectedCounterparty.userId;
     const receivedByUserId = direction === "you_pay" ? selectedCounterparty.userId : currentUser._id;
+    const expectedBalance = Number(pairwiseBalanceData?.balance ?? allowedAmount);
 
     try {
       await createSettlement.mutate({
@@ -140,6 +160,8 @@ const SettlementPage = () => {
         paidByUserId,
         receivedByUserId,
         groupId: type === "group" ? data?.group?.groupId : undefined,
+        idempotencyKey: settlementIdempotencyKey,
+        expectedBalance,
       });
 
       toast.success("Settlement recorded successfully.");
